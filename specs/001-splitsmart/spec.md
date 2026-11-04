@@ -1,15 +1,21 @@
 # SplitSmart Feature Specification
 
-**Status:** Draft for product/customer review  
+**Status:** Architecture 1 selected under ADR-001; acceptance criteria and remaining product-policy defaults await delivery/review
 **Source of truth:** [`UserRequirement.md`](../../UserRequirement.md)  
 **Implementation principles:** [SplitSmart Constitution](../../.specify/memory/constitution.md)
 
 ## Authority and Labels
 
-- **Customer requirement** means a capability or platform explicitly present in `UserRequirement.md`. These requirements remain in scope regardless of the proposed MVP.
+- **Customer requirement** means a capability or platform explicitly present in `UserRequirement.md`. These requirements remain in scope regardless of delivery phase.
 - **Derived requirement** means a testable interpretation or necessary detail inferred from a customer capability. It must not be mistaken for a separately approved customer request.
 - **Implementation decision** means a technical constraint adopted by the project. It does not redefine or waive customer requirements.
-- **MVP status** describes a proposed delivery subset only. An item marked deferred remains in the customer requirements inventory.
+- **Phase 1 status** describes planned desktop coverage only. Future platform deliveries remain in the customer requirements inventory; no design document demonstrates satisfaction.
+
+## Approved Project Planning Decision
+
+**PLAN-001 — Swing-first phased delivery (approved by the project owner on 2026-11-04).** Phase 1 is a Java 21 Swing desktop MVP built with Maven. The primary web product and Android and iOS apps remain required customer platforms for future phases. This is approval of delivery sequencing, not a change to `UserRequirement.md`, the functional requirements, or their acceptance criteria. No requirement is satisfied merely by approving this plan.
+
+**ADR-001 — Architecture 1 selected (project owner approval, 2026-11-04).** Use the [Spec Kit modular monolith](plan.md): Java 21/Maven, a thin Swing client and one shared HTTP backend with PostgreSQL. Preserve JUnit 5, BigDecimal and PlantUML. See the [decision record](architecture-decision.md), [architecture documentation](architecture.md), [class diagram](diagrams/class-diagram.puml) and [activity diagram](diagrams/expense-activity.puml). The [service-oriented alternative](alternative-architecture.md) remains available for comparison and is not selected. Architecture selection does not confirm research D1–D5 product-policy defaults.
 
 ## Confirmed Product Decisions
 
@@ -75,7 +81,7 @@ A user accesses the product primarily through the web and can also use an app on
 
 All rows below remain in scope as customer requirements unless explicitly marked derived. MVP status does not remove or amend an item.
 
-| ID | Requirement | Origin | Proposed Java Swing MVP status |
+| ID | Requirement | Origin | Selected Phase 1 desktop status |
 | --- | --- | --- | --- |
 | FR-001 | Each person can have an account, sign in, and access their own expense and balance information. | Customer requirement | Included |
 | FR-002 | Users can create and manage groups of people to organize shared expenses and balances. A group owner/manager controls invitations and member removal; removing a member preserves historical expenses and balances. | Customer requirement; management rules confirmed | Included |
@@ -83,11 +89,11 @@ All rows below remain in scope as customer requirements unless explicitly marked
 | FR-004 | An expense identifies the other users involved, and the system applies the appropriate participant allocation. | Customer requirement | Included |
 | FR-005 | An expense can include an optional receipt image. | Customer requirement | Included |
 | FR-006 | Other group members receive an in-app notification when an expense is submitted for approval. | Customer requirement; timing and channel confirmed | Included |
-| FR-007 | Expenses can be reviewed and approved before being added to tracked expenses and affecting balances. A group can use a single review or multiple approval levels. | Customer requirement | Included with one review step proposed; configurable levels open |
+| FR-007 | Expenses can be reviewed and approved before being added to tracked expenses and affecting balances. A group can use a single review or multiple approval levels. | Customer requirement | Single/multiple sequential levels planned; reviewer policy provisional |
 | FR-008 | The system tracks the balance owed by each user to every other user, taking entered expenses into account. | Customer requirement | Included |
 | FR-009 | Users can record positive payments up to the outstanding amount, including partial payments. Corrections use a reversal record, and balances reflect payments. | Customer requirement; settlement rules confirmed | Included |
-| FR-010 | Users can view reports and summaries of their expenses, balances, and payments. | Customer requirement | Included as basic summaries |
-| FR-011 | Users can generate custom reports with specified date ranges and other parameters. | Customer requirement | Deferred beyond basic summaries |
+| FR-010 | Users can view reports and summaries of their expenses, balances, and payments. | Customer requirement | Summaries planned |
+| FR-011 | Users can generate custom reports with specified date ranges and other parameters. | Customer requirement | Date/group/type/status-filtered reports planned; further parameters/formats open |
 | FR-012 | The product is primarily web-based and also has apps that run on Android and iOS. | Customer requirement | Not fulfilled by Swing MVP; separate platform delivery required |
 
 ## Acceptance Criteria
@@ -184,8 +190,8 @@ These requirements are labeled by origin so technical choices are not misreprese
 | ID | Requirement | Origin | Acceptance evidence |
 | --- | --- | --- | --- |
 | NFR-001 | Preserve account and group data boundaries: users can access only information permitted by their account and group membership. | Derived from customer account/group needs | Authorization tests demonstrate allowed access and denied cross-account/non-member access for expenses, balances, receipts, and reports. |
-| NFR-002 | Use Java 21 and Maven for the proposed Java implementation, with dependencies and build configuration declared in Maven. | Implementation decision | A clean Maven build succeeds on Java 21 and the project identifies the required Java version. |
-| NFR-003 | Use Java Swing for the proposed desktop MVP client while keeping UI/event handling separate from business rules. | Implementation decision | Domain/application behavior can be exercised without constructing Swing components; UI code delegates business operations to that layer. |
+| NFR-002 | Use Java 21 and Maven for the selected Java implementation, with dependencies and build configuration declared in Maven. | Implementation decision | A clean Maven build succeeds on Java 21 and the project identifies the required Java version. |
+| NFR-003 | Use Java Swing for the Phase 1 desktop client while keeping UI/event handling separate from business rules. | Implementation decision | Domain/application behavior can be exercised without constructing Swing components; UI code delegates business operations to that layer. |
 | NFR-004 | Use object-oriented design with focused responsibilities and testable dependencies. | Implementation decision | Review confirms the expense, approval, balance, payment, and reporting rules are not concentrated in UI handlers or a single unrelated class. |
 | NFR-005 | Use `BigDecimal`, not binary floating-point types, for financial values; round shares to the currency's minor unit and assign remainders deterministically. | Implementation decision; remainder policy confirmed | Automated tests cover equal and percentage splits, currency precision, deterministic remainder allocation, and exact reconciliation of participant shares to expense totals. |
 | NFR-006 | Use JUnit 5 for automated behavior tests, especially domain and application rules independent of Swing. | Implementation decision | Maven test execution runs JUnit 5 tests for the critical acceptance criteria, including approval and settlement effects. |
@@ -193,20 +199,20 @@ These requirements are labeled by origin so technical choices are not misreprese
 | NFR-008 | Maintain traceability from each customer requirement ID to specification, implementation, and verification evidence. | Implementation decision | A release review can identify implementation and passing acceptance evidence for every claimed satisfied FR; deferred items remain explicitly marked. |
 | NFR-009 | Human contributors review and understand AI-assisted code, tests, diagrams, and documentation before approval or release. | Implementation decision | Review/merge records show human approval and relevant checks; AI output alone is not treated as approval or verification. |
 
-## Proposed Java Swing MVP Subset
+## Selected Architecture and Phase 1 Scope
 
-This section records a **proposed implementation scope**, not a change to the authoritative customer request. It is subject to product approval and does not redefine any FR.
+Phase 1 plans FR-001–FR-011 through the Java 21 Swing client and shared HTTP/PostgreSQL backend. Business rules remain independent of Swing, HTTP and SQL frameworks. The current plan supersedes earlier one-step/basic-summary-only scope proposals; it does not reduce any customer requirement.
 
-- **Client:** Java 21 desktop application using Swing and Maven.
-- **Proposed included requirements:** FR-001 through FR-010, with one approval step proposed and the confirmed in-app notification on expense submission.
-- **Basic reports only:** Include summaries under FR-010; defer custom report parameters under FR-011.
-- **Platform gap:** FR-012 remains unsatisfied by this MVP. The customer-requested primary web experience and Android/iOS apps require separately scoped clients and acceptance evidence.
-- **Architecture constraint:** Keep business rules independent from Swing so they can be reused by additional clients where appropriate.
-- **No Java code is specified or generated by this document.**
+- Single or multiple sequential approval levels are planned; reviewer selection, self-review, reassignment and resubmission details remain draft policy D3.
+- Summaries and date/group/type/status-filtered custom reports are planned; further parameters/formats remain subject to confirmation under D5.
+- Optional receipts, deterministic exact allocation, submission notifications, pairwise balances and payment/reversal history remain planned.
+- Primary web, Android and iOS remain required future clients. Swing does not satisfy FR-012.
+- Individual sharing is planned through two-person groups. Confirm whether a separate direct-expense UX is required before claiming full coverage of individual-sharing needs.
+- This is documentation only, with no application code or verified implementation.
 
 ## Open Questions
 
-1. Is a Swing desktop MVP an approved first delivery, given the customer’s explicit primary-web and Android/iOS requirement, or must the MVP include those platforms?
+1. Resolved by PLAN-001: Swing-first delivery is approved; primary web, Android and iOS remain mandatory future phases. Detailed platform acceptance matrices remain to be agreed.
 2. Who may review expenses? Can the submitter review their own expense? How are single- and multi-level workflows configured, and what happens after rejection?
 3. Which currencies are supported, which rounding mode applies, and what stable rule identifies the participant who receives a rounding remainder?
 4. How should a payment reversal be authorized and handled if the original payment has already been reconciled or otherwise acted upon?
@@ -214,3 +220,5 @@ This section records a **proposed implementation scope**, not a change to the au
 6. Which receipt image formats, maximum sizes, storage duration, and visibility rules are required?
 7. Which browser versions, Android/iOS versions, and desktop operating systems must be supported?
 8. Are account deletion or multi-factor authentication in scope? Email/password registration, sign-in, and password recovery are confirmed; other lifecycle and authentication controls are not defined by the source brief.
+
+9. Does individual-to-individual sharing require a separate direct-expense workflow, or is the planned two-person group sufficient? No original capability is waived.

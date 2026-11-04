@@ -1,0 +1,43 @@
+@startuml
+ title SplitSmart Architecture 1 - approved modular monolith (ADR-001)
+package "Phase 1 desktop deployment" {
+  [Swing views / presenters] as desktop
+  [HTTP DTOs / client adapter] as transport
+  desktop --> transport
+}
+package "Single shared backend deployment - Java 21 / Maven" {
+  [HTTP / security adapters] as http
+  [Application use cases / ports] as app
+  [Domain rules / BigDecimal] as domain
+  [JDBC transaction adapters] as jdbc
+  [SMTP adapter] as mail
+  http --> app
+  app --> domain
+  jdbc ..> app : implements persistence ports
+  http --> jdbc : transaction composition
+  mail ..> app : implements mail port
+}
+database "Shared PostgreSQL\nledger, balances, private receipts,\nnotifications and business records" as db
+cloud "SMTP / development mail sink" as smtp
+transport --> http : HTTPS / API v1
+jdbc --> db
+mail --> smtp
+package "Required future clients" {
+  [Primary web client] as web
+  [Android app] as android
+  [iOS app] as ios
+}
+web ..> http : future consumer
+android ..> http : future consumer
+ios ..> http : future consumer
+note bottom of domain
+No Swing, SQL or HTTP types.
+Business services are in-process responsibilities.
+Approval, ledger and balances share one transaction.
+end note
+note bottom of web
+PLAN-001 phases delivery only.
+Swing does not satisfy FR-012.
+Future client toolchains/support matrices need review.
+end note
+@enduml

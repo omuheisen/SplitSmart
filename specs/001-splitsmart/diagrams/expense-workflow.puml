@@ -1,0 +1,19 @@
+@startuml
+ title Architecture 1 expense state machine - complementary to expense-activity.puml
+[*] --> Pending : Valid submission + shares + policy snapshot\n+ notifications in one transaction
+Pending --> Pending : Current eligible reviewer approves\nmore levels remain; no posting
+Pending --> Pending : Manager reassigns pending step\naudit only; no posting
+Pending --> Approved : Final reviewer approves\natomic state + ledger + balances
+Pending --> Rejected : Current reviewer rejects\nno ledger effects
+Approved --> [*]
+Rejected --> [*]
+note right of Pending
+Expense lock and expected version.
+No self-review under provisional D3; no out-of-order decision.
+Retry cannot duplicate effects.
+end note
+note right of Rejected
+Correction is a new submission
+referencing the original.
+end note
+@enduml

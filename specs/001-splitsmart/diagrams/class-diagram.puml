@@ -1,0 +1,164 @@
+@startuml
+ title SplitSmart Architecture 1 - conceptual domain class diagram (ADR-001)
+hide empty methods
+skinparam classAttributeIconSize 0
+
+class User {
+  id : UUID
+  normalizedEmail : String
+  displayName : String
+}
+class Group {
+  id : UUID
+  name : String
+  currencyCode : String
+  currencyScale : int
+}
+class Membership {
+  role : MembershipRole
+  joinedAt : Instant
+  removedAt : Instant [optional]
+}
+class Expense {
+  id : UUID
+  amount : BigDecimal
+  businessDate : LocalDate
+  description : String
+  splitMethod : SplitMethod
+  state : ExpenseState
+  allocationVersion : String
+  version : long
+}
+enum SplitMethod {
+  EQUAL
+  PERCENTAGE
+}
+enum ExpenseState {
+  PENDING
+  APPROVED
+  REJECTED
+}
+class ExpenseShare {
+  percentage : BigDecimal [optional]
+  shareAmount : BigDecimal
+  allocationRank : int
+}
+class SplitCalculator <<domain responsibility>> {
+  allocateEqual()
+  allocatePercentage()
+}
+class ApprovalPolicy {
+  id : UUID
+  version : long
+}
+class PolicyStep {
+  ordinal : int
+}
+class ApprovalStep {
+  id : UUID
+  ordinal : int
+  state : ReviewState
+  reviewedAt : Instant [optional]
+  version : long
+}
+enum ReviewState {
+  PENDING
+  APPROVED
+  REJECTED
+}
+class Payment {
+  id : UUID
+  amount : BigDecimal
+  currency : String
+  businessDate : LocalDate
+}
+class PaymentReversal {
+  id : UUID
+  businessDate : LocalDate
+  reason : String
+}
+class LedgerEntry {
+  id : UUID
+  signedAmount : BigDecimal
+  currency : String
+  businessDate : LocalDate
+  sourceType : String
+  sourceId : UUID
+  sourceLine : int
+}
+class PairBalance {
+  signedBalance : BigDecimal
+  currency : String
+  version : long
+}
+class Receipt {
+  id : UUID
+  mediaType : String
+  byteLength : long
+}
+class Notification {
+  id : UUID
+  type : String
+  createdAt : Instant
+  readAt : Instant [optional]
+}
+
+User "1" -- "0..*" Membership : belongs through
+Group "1" -- "1..*" Membership : retains history
+Group "1" -- "0..*" Expense : organizes
+User "1" <-- "0..*" Expense : submitter
+User "1" <-- "0..*" Expense : payer
+Expense "1" *-- "1..*" ExpenseShare : participant splits
+User "1" <-- "0..*" ExpenseShare : participant
+Expense --> SplitMethod
+Expense --> ExpenseState
+SplitCalculator ..> ExpenseShare : calculates exact allocations
+Expense "1" *-- "0..1" Receipt : optional private image
+Group "1" -- "0..*" ApprovalPolicy : versioned policies
+ApprovalPolicy "1" *-- "1..*" PolicyStep : ordered configuration
+User "1" <-- "0..*" PolicyStep : assigned reviewer
+Expense "1" *-- "1..*" ApprovalStep : submitted snapshot
+ApprovalPolicy "1" <-- "0..*" Expense : policy version
+User "1" <-- "0..*" ApprovalStep : current assigned reviewer
+ApprovalStep --> ReviewState
+PolicyStep ..> ApprovalStep : copied on submission
+Group "1" -- "0..*" Payment : settlement scope
+User "1" <-- "0..*" Payment : sender
+User "1" <-- "0..*" Payment : recipient
+Payment "1" -- "0..1" PaymentReversal : immutable correction
+User "1" <-- "0..*" PaymentReversal : authorized actor
+Group "1" -- "0..*" LedgerEntry
+Group "1" -- "0..*" PairBalance
+User "1" <-- "0..*" PairBalance : lowUser
+User "1" <-- "0..*" PairBalance : highUser
+User "1" <-- "0..*" LedgerEntry : lowUser
+User "1" <-- "0..*" LedgerEntry : highUser
+Expense ..> LedgerEntry : final approval posts
+Payment ..> LedgerEntry : settlement posts
+PaymentReversal ..> LedgerEntry : inverse posting
+PairBalance ..> LedgerEntry : reconciles to signed sum
+Expense "1" -- "0..*" Notification : submission notice
+User "1" <-- "0..*" Notification : recipient
+Group "1" -- "0..*" Notification
+
+note bottom of ExpenseShare
+Payer may be included or excluded from participants.
+Amounts use BigDecimal; shares sum exactly to expense amount.
+Percentage method requires an exact total of 100%.
+end note
+note bottom of PairBalance
+One canonical user pair per group/currency.
+Positive: lowUser owes highUser; negative: reverse.
+Ledger is authoritative; projection updates atomically.
+end note
+note bottom of ApprovalStep
+One or multiple ordered review levels.
+No posting until every required step approves.
+Eligibility/self-review rules remain provisional D3.
+end note
+note as Scope
+Focused planned model, not application code or SQL schema.
+Entities share one backend and PostgreSQL transaction boundary.
+Security/audit/idempotency records are detailed in data-model.md.
+end note
+@enduml

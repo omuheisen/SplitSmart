@@ -1,0 +1,90 @@
+@startuml
+ title SplitSmart Architecture 1 - expense activity (ADR-001)
+start
+:Signed-in user submits expense via Swing / HTTP;
+:Provide amount, date, description, payer,
+participants, equal/percentage split and optional receipt;
+:Backend validates authentication, current membership,
+required fields, positive amount/currency precision,
+participants, exact percentages, image and review policy;
+if (Submission valid?) then (yes)
+  :Calculate deterministic exact shares;
+  :Begin PostgreSQL submission transaction;
+  :Recheck membership and snapshot approval policy;
+  :Insert PENDING expense, shares, optional receipt,
+review steps, audit and idempotency result;
+  :Insert one notification row for each other
+active group member (deduplicated);
+  if (Submission transaction commits?) then (yes)
+    :Return PENDING expense; balances unchanged;
+    :Other members retrieve in-app notifications
+through authorized polling after commit;
+  else (no)
+    :Roll back all submission writes;
+    :Return retryable error; no expense,
+notification or balance effects;
+    stop
+  endif
+else (no)
+  :Return field / authorization error;
+  :No persisted expense, notification or balance effects;
+  stop
+endif
+
+repeat
+  :Wait for current assigned reviewer's decision;
+  :Begin review transaction; lock expense;
+  :Revalidate actor, membership, reviewer eligibility,
+current step, expected version and idempotency;
+  if (Decision authorized and current?) then (yes)
+    if (Reviewer rejects?) then (yes)
+      :Record rejection and REJECTED outcome;
+      if (Rejection transaction commits?) then (yes)
+        :Return REJECTED; no ledger or balance update;
+      else (no)
+        :Roll back; expense remains pending at prior step;
+        :Return retryable error;
+      endif
+      stop
+    else (approve)
+      if (All required levels now approved?) then (yes)
+        :Lock affected pair balances in canonical order;
+        :Record final decision and APPROVED state;
+        :Append unique-source ledger entries;
+        :Update pair balances exactly once;
+        :Save audit and idempotency result;
+        if (Final approval transaction commits?) then (yes)
+          :Return APPROVED and committed balances;
+          :Subsequent authorized reports read committed data;
+        else (no)
+          :Roll back decision, ledger and balance changes together;
+          :Return retryable error; expense remains pending;
+        endif
+        stop
+      else (more levels)
+        :Record intermediate approval;
+        if (Intermediate transaction commits?) then (yes)
+          :Expense remains PENDING; advance review step;
+          :No ledger or balance change;
+        else (no)
+          :Roll back intermediate decision;
+          :Return retryable error; keep prior review step;
+          stop
+        endif
+      endif
+    endif
+  else (no)
+    :Roll back; return authorization / version conflict;
+    :No new decision or financial effects;
+    stop
+  endif
+repeat while (More required review levels?) is (yes)
+stop
+legend bottom
+A stopped request leaves a pending expense available
+for a later valid review/retry; it does not delete it.
+Rejected correction is a separate new submission.
+Submission notification timing follows DEC-007;
+no new approval-notification requirement is implied.
+endlegend
+@enduml
